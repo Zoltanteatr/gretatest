@@ -1,9 +1,31 @@
 // Инициализация сцены
 const scene = new THREE.Scene();
 
+// Камера
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 5, 15);
+
+// Рендерер
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000, 0); // Прозрачный фон
+document.body.appendChild(renderer.domElement);
+
+// OrbitControls
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+// Освещение (ОБЯЗАТЕЛЬНО для MeshStandardMaterial)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(5, 10, 7);
+scene.add(directionalLight);
+
 // Загрузка фона
-const textureLoader = new THREE.TextureLoader();
-textureLoader.load(
+new THREE.TextureLoader().load(
   'https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D1%88%D0%BA%D0%B0%D1%84.png',
   (texture) => {
     scene.background = texture;
@@ -12,39 +34,15 @@ textureLoader.load(
   (err) => console.error('Ошибка загрузки фона:', err)
 );
 
-// Камера
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 15);
-
-// Рендерер
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth / window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-// OrbitControls для вращения
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.target.set(0, 0, 0); // Вращение вокруг центра
-
-// Освещение
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambientLight);
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(5, 10, 7);
-scene.add(directionalLight);
-
 // Центральная модель
 const loader = new THREE.GLTFLoader();
-let centerModel;
 loader.load(
   'https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/tripo_pbr_model_83e27b47-5346-4e55-bbaa-1bba61837d12.glb',
   (gltf) => {
-    centerModel = gltf.scene;
-    centerModel.scale.set(3, 3, 3);
-    centerModel.position.y = 0;
-    scene.add(centerModel);
+    const model = gltf.scene;
+    model.scale.set(3, 3, 3);
+    scene.add(model);
+    console.log('3D модель загружена');
   },
   undefined,
   (error) => console.error('Ошибка загрузки модели:', error)
@@ -53,100 +51,60 @@ loader.load(
 // Данные карточек
 const cardData = [
   { name: "ДЖОРДЖ СЖАТ", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%94%D0%96%D0%9E%D0%A0%D0%94%D0%96%20%D0%A1%D0%96%D0%90%D0%A2.png", url: "#" },
-  // ... остальные карточки
+  { name: "Обложка сжата", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%9E%D0%B1%D0%BB%D0%BE%D0%B6%D0%BA%D0%B0%20%D1%81%D0%B6%D0%B0%D1%82%D0%B0.png", url: "#" },
+  { name: "Обложка 13", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%BE%D0%B1%D0%BB%D0%BE%D0%B6%D0%BA%D0%B0%2013.png", url: "#" },
+  { name: "Обложка ПРИМА", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%9E%D0%91%D0%9B%D0%9E%D0%96%D0%9A%D0%90%20%D0%9F%D0%A0%D0%98%D0%9C%D0%90%20%E2%80%94%20%D0%BA%D0%BE%D0%BF%D0%B8%D1%8F.png", url: "#" }
 ];
-
-// Параметры спирали
-const SPIRAL_RADIUS = 8;
-const SPIRAL_HEIGHT = 12;
-const CARD_WIDTH = 3;
-const CARD_HEIGHT = 2;
 
 // Создание карточек
 const cards = [];
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
+const cardSize = { width: 3, height: 2 };
 
 cardData.forEach((card, index) => {
-  const textureLoader = new THREE.TextureLoader();
-  const cardTexture = textureLoader.load(card.imageUrl);
-
-  const cardGeometry = new THREE.PlaneGeometry(CARD_WIDTH, CARD_HEIGHT);
-  const cardMaterial = new THREE.MeshStandardMaterial({
-    map: cardTexture,
+  const texture = new THREE.TextureLoader().load(card.imageUrl);
+  const material = new THREE.MeshStandardMaterial({
+    map: texture,
     side: THREE.DoubleSide,
     transparent: true,
-    opacity: 1
+    opacity: 0.9
   });
   
-  const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
+  const geometry = new THREE.PlaneGeometry(cardSize.width, cardSize.height);
+  const mesh = new THREE.Mesh(geometry, material);
 
   // Позиционирование в спирали
   const angle = (index / cardData.length) * Math.PI * 2;
-  const radius = SPIRAL_RADIUS;
-  const height = (index / cardData.length) * SPIRAL_HEIGHT - SPIRAL_HEIGHT/2;
+  const radius = 8;
+  const height = (index / cardData.length) * 10 - 5;
 
-  cardMesh.position.set(
+  mesh.position.set(
     Math.cos(angle) * radius,
     height,
     Math.sin(angle) * radius
   );
   
-  // Карточки всегда смотрят наружу
-  cardMesh.quaternion.setFromEuler(new THREE.Euler(0, angle, 0));
+  // Ориентация карточек
+  mesh.lookAt(0, height, 0);
 
-  // Подпись
-  const labelDiv = document.createElement('div');
-  labelDiv.className = 'card-label';
-  labelDiv.textContent = card.name;
-  const label = new THREE.CSS2DObject(labelDiv);
-  label.position.set(0, -CARD_HEIGHT/2 - 0.3, 0);
-  cardMesh.add(label);
-
-  cardMesh.userData = card;
-  scene.add(cardMesh);
-  cards.push(cardMesh);
+  scene.add(mesh);
+  cards.push(mesh);
+  console.log(`Карточка ${index} создана`);
 });
 
 // Анимация
 function animate() {
   requestAnimationFrame(animate);
-
-  // Вращение карточек вокруг своей оси
+  
+  // Вращение карточек
   cards.forEach(card => {
-    card.rotation.y += 0.005;
+    card.rotation.y += 0.01;
   });
 
-  // Обновление OrbitControls
   controls.update();
-
   renderer.render(scene, camera);
 }
 
-// Обработчики событий
-window.addEventListener('mousemove', (event) => {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  
-  // Raycasting для hover
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(cards);
-  
-  cards.forEach(card => {
-    const isIntersected = intersects.some(i => i.object === card);
-    card.material.opacity = isIntersected ? 1 : 0.9;
-    card.children[0].element.style.opacity = isIntersected ? 1 : 0;
-  });
-});
-
-window.addEventListener('click', () => {
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(cards);
-  if (intersects.length > 0) {
-    window.open(intersects[0].object.userData.url, '_blank');
-  }
-});
-
+// Обработка ресайза
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -155,3 +113,4 @@ window.addEventListener('resize', () => {
 
 // Запуск
 animate();
+console.log('Сцена запущена');
