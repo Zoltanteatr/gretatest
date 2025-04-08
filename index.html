@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Спираль</title>
+  <title>3D Спираль со шкафом</title>
   <style>
     body, html { margin: 0; padding: 0; overflow: hidden; }
     canvas { display: block; width: 100%; height: 100%; }
@@ -29,10 +29,10 @@
 <script>
   // 1. Инициализация
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x222222); // Фон по умолчанию
+  scene.background = new THREE.Color(0x222222);
 
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 3, 18); // Отодвинули камеру для увеличенной модели
+  camera.position.set(0, 5, 20); // Отрегулирована камера для шкафа
   
   const renderer = new THREE.WebGLRenderer({ 
     antialias: true,
@@ -45,37 +45,48 @@
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
+  controls.target.set(0, 2, 0); // Центр смещен вверх
 
-  // 3. Освещение (3 источника)
-  const light1 = new THREE.DirectionalLight(0xffffff, 1.2);
+  // 3. Освещение (4 источника)
+  const light1 = new THREE.DirectionalLight(0xffffff, 1.5);
   light1.position.set(5, 10, 7);
   scene.add(light1);
   
-  const light2 = new THREE.DirectionalLight(0xffffff, 0.7);
+  const light2 = new THREE.DirectionalLight(0xffffff, 0.8);
   light2.position.set(-5, 5, -7);
   scene.add(light2);
   
-  scene.add(new THREE.AmbientLight(0xffffff, 1));
+  const light3 = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+  scene.add(light3);
 
-  // 4. Центральная модель (увеличенная в 2 раза)
+  // 4. Загрузка шкафа (новая модель)
   new THREE.GLTFLoader().load(
-    'https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/tripo_pbr_model_83e27b47-5346-4e55-bbaa-1bba61837d12.glb',
+    'https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/shkaf.glb',
     (gltf) => {
       const model = gltf.scene;
-      model.scale.set(6, 6, 6); // Увеличили в 2 раза (было 3)
-      model.position.y = -1.5; // Подняли выше для баланса
+      
+      // Оптимальные параметры для шкафа
+      model.scale.set(3.5, 3.5, 3.5);
+      model.position.y = 0;
+      model.rotation.y = Math.PI/4; // Поворот для лучшего обзора
+      
+      // Подсветка внутренней части шкафа
+      const cabinetLight = new THREE.PointLight(0xffeedd, 3, 8);
+      cabinetLight.position.set(0, 2, 0);
+      model.add(cabinetLight);
+      
       scene.add(model);
-      
-      // Усиленная подсветка модели
-      const modelLight = new THREE.PointLight(0xffaa33, 3, 15);
-      modelLight.position.set(0, 2, 0);
-      model.add(modelLight);
-      
-      console.log('3D модель загружена (размер x2)');
+      console.log('3D модель шкафа загружена');
     },
     undefined,
     (error) => {
-      console.error('Ошибка загрузки модели:', error);
+      console.error('Ошибка загрузки модели шкафа:', error);
+      // Создаем куб-заглушку при ошибке
+      const geometry = new THREE.BoxGeometry(5, 7, 2);
+      const material = new THREE.MeshStandardMaterial({ color: 0x5a3e1f });
+      const placeholder = new THREE.Mesh(geometry, material);
+      placeholder.position.y = 3;
+      scene.add(placeholder);
     }
   );
 
@@ -97,20 +108,7 @@
     return `https://corsproxy.io/?${encodeURIComponent(url)}`;
   }
 
-  // 6. Загрузка фона
-  new THREE.TextureLoader().load(
-    getProxyUrl('https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D1%88%D0%BA%D0%B0%D1%84.png'),
-    (texture) => {
-      scene.background = texture;
-      console.log('Фон успешно загружен');
-    },
-    undefined,
-    (err) => {
-      console.error('Ошибка загрузки фона:', err);
-    }
-  );
-
-  // 7. Создание карточек
+  // 6. Создание карточек
   cardData.forEach((card, i) => {
     const textureLoader = new THREE.TextureLoader();
     
@@ -120,17 +118,17 @@
         const material = new THREE.MeshStandardMaterial({
           map: texture,
           side: THREE.DoubleSide,
-          metalness: 0.1,
-          roughness: 0.5
+          metalness: 0.2,
+          roughness: 0.4
         });
         
-        const geometry = new THREE.PlaneGeometry(3, 2);
+        const geometry = new THREE.PlaneGeometry(3.2, 2.1); // Чуть больше размер
         const mesh = new THREE.Mesh(geometry, material);
 
-        // Позиция в спирали (радиус увеличен для баланса)
+        // Позиция в спирали (радиус увеличен)
         const angle = (i / cardData.length) * Math.PI * 2;
-        const radius = 4; // Увеличили радиус
-        const height = i * 1.3 - (cardData.length * 1.3 / 2);
+        const radius = 10; // Больший радиус для шкафа
+        const height = i * 1.5 - (cardData.length * 1.5 / 2) + 2; // Смещение вверх
 
         mesh.position.set(
           Math.cos(angle) * radius,
@@ -138,8 +136,8 @@
           Math.sin(angle) * radius
         );
         
-        // Ориентация к камере
-        mesh.lookAt(camera.position);
+        // Ориентация к центру сцены
+        mesh.lookAt(0, height, 0);
         
         scene.add(mesh);
         cards.push(mesh);
@@ -151,20 +149,23 @@
     );
   });
 
-  // 8. Анимация
+  // 7. Анимация
   function animate() {
     requestAnimationFrame(animate);
     
-    cards.forEach(card => {
-      card.rotation.y += 0.01;
-      card.lookAt(camera.position);
+    // Плавное вращение карточек
+    cards.forEach((card, i) => {
+      card.rotation.y += 0.008;
+      
+      // Добавляем легкое "дыхание" (колебание по вертикали)
+      card.position.y += Math.sin(performance.now() * 0.001 + i) * 0.01;
     });
 
     controls.update();
     renderer.render(scene, camera);
   }
 
-  // 9. Обработка ошибок WebGL
+  // 8. Обработка ошибок WebGL
   renderer.domElement.addEventListener('webglcontextlost', (event) => {
     console.warn('WebGL контекст потерян');
     event.preventDefault();
@@ -175,10 +176,10 @@
     animate();
   }, false);
 
-  // 10. Запуск
+  // 9. Запуск
   animate();
 
-  // 11. Адаптация
+  // 10. Адаптация
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
