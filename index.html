@@ -1,14 +1,254 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Spiral Cards</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <title>3D Rotating Cards</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000; /* Временный фон */
+    }
+    canvas {
+      display: block;
+    }
+    .card-label {
+      position: absolute;
+      color: white;
+      font-size: 14px;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+  </style>
 </head>
 <body>
-  <div id="canvas-container"></div>
-  <script src="script.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<script>
+  // Scene setup
+  const scene = new THREE.Scene();
+
+  // Create gradient background
+  const gradientCanvas = document.createElement('canvas');
+  gradientCanvas.width = 512;
+  gradientCanvas.height = 512;
+  const ctx = gradientCanvas.getContext('2d');
+
+  // Radial gradient from center to edges
+  const centerX = gradientCanvas.width / 2;
+  const centerY = gradientCanvas.height / 2;
+  const radius = Math.sqrt(centerX ** 2 + centerY ** 2); // Maximum radius
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+  gradient.addColorStop(0, '#b87333'); // Copper-gold at the center
+  gradient.addColorStop(0.5, '#663300'); // Darker copper
+  gradient.addColorStop(1, '#000000'); // Black at the edges
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, gradientCanvas.width, gradientCanvas.height);
+
+  // Set gradient as background
+  const gradientTexture = new THREE.CanvasTexture(gradientCanvas);
+  scene.background = gradientTexture;
+
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // CSS2DRenderer for labels
+  const labelRenderer = new THREE.CSS2DRenderer();
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.domElement.style.position = 'absolute';
+  labelRenderer.domElement.style.top = '0';
+  labelRenderer.domElement.style.pointerEvents = 'none';
+  document.body.appendChild(labelRenderer.domElement);
+
+  // Orbit controls for camera interaction
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+
+  // Load central 3D model (.glb)
+  const loader = new THREE.GLTFLoader();
+  loader.load(
+    'https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/tripo_pbr_model_83e27b47-5346-4e55-bbaa-1bba61837d12.glb',
+    (gltf) => {
+      const model = gltf.scene;
+      model.scale.set(6, 6, 6); // Increase scale by 4x
+      scene.add(model);
+    },
+    undefined,
+    (error) => {
+      console.error('Error loading GLB model:', error);
+    }
+  );
+
+  // Light source
+  const light = new THREE.PointLight(0xffffff, 1, 100);
+  light.position.set(10, 10, 10);
+  scene.add(light);
+
+  // Gradient texture for hover effect
+  const cardGradientCanvas = document.createElement('canvas');
+  cardGradientCanvas.width = 256;
+  cardGradientCanvas.height = 256;
+  const cardCtx = cardGradientCanvas.getContext('2d');
+  const cardGradient = cardCtx.createLinearGradient(0, 0, 256, 256);
+  cardGradient.addColorStop(0, '#000000'); // Black
+  cardGradient.addColorStop(0.5, '#b87333'); // Copper-gold
+  cardGradient.addColorStop(1, '#000000'); // Black
+  cardCtx.fillStyle = cardGradient;
+  cardCtx.fillRect(0, 0, 256, 256);
+  const cardGradientTexture = new THREE.CanvasTexture(cardGradientCanvas);
+
+  // Card data
+  const cardData = [
+    { name: "ДЖОРДЖ СЖАТ", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%94%D0%96%D0%9E%D0%A0%D0%94%D0%96%20%D0%A1%D0%96%D0%90%D0%A2.png", url: "#" },
+    { name: "Обложка сжата", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%9E%D0%B1%D0%BB%D0%BE%D0%B6%D0%BA%D0%B0%20%D1%81%D0%B6%D0%B0%D1%82%D0%B0.png", url: "#" },
+    { name: "Обложка 13", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%BE%D0%B1%D0%BB%D0%BE%D0%B6%D0%BA%D0%B0%2013.png", url: "#" },
+    { name: "Обложка ПРИМА", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%9E%D0%91%D0%9B%D0%9E%D0%96%D0%9A%D0%90%20%D0%9F%D0%A0%D0%98%D0%9C%D0%90%20%E2%80%94%20%D0%BA%D0%BE%D0%BF%D0%B8%D1%8F.png", url: "#" },
+    { name: "Ключник", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/keykeeper.png", url: "#" },
+    { name: "Вопрос", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%92%D0%BE%D0%BF%D1%80%D0%BE%D1%81.png", url: "#" },
+    { name: "Мадонна", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%BC%D0%B0%D0%B4%D0%BE%D0%BD%D0%BD%D0%B0.jpg", url: "#" },
+    { name: "Клюющий", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%9A%D0%BB%D1%8E%D1%87%D0%BD%D0%B8%D0%BA.jpg", url: "#" },
+    { name: "Костюмер", imageUrl: "https://c0f40df9-9dd3-48d8-b617-a1a14987d44d.selstorage.ru/%D0%9A%D0%BE%D1%81%D1%82%D1%8E%D0%BC%D0%B5%D1%80.jpg", url: "#" },
+  ];
+
+  // Create cards
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let hoveredCard = null;
+
+  cardData.forEach((card, index) => {
+    const textureLoader = new THREE.TextureLoader();
+    const cardTexture = textureLoader.load(card.imageUrl);
+
+    const cardGeometry = new THREE.PlaneGeometry(2, 1);
+    const cardMaterial = new THREE.MeshStandardMaterial({
+      map: cardTexture,
+      side: THREE.DoubleSide,
+    });
+    const cardMesh = new THREE.Mesh(cardGeometry, cardMaterial);
+
+    // Position cards in a spiral
+    const angle = (index / cardData.length) * Math.PI * 2; // Angle around the circle
+    const radius = 2 + index * 0.3; // Closer to the center
+    const height = index * 1.2; // Move up along the Y-axis
+
+    cardMesh.position.set(
+      Math.cos(angle) * radius,
+      height,
+      Math.sin(angle) * radius
+    );
+
+    // Look at the center
+    cardMesh.lookAt(0, height, 0);
+
+    // Add metadata
+    cardMesh.userData.url = card.url;
+    cardMesh.userData.name = card.name;
+
+    // Add label
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'card-label';
+    labelDiv.textContent = card.name;
+    const label = new THREE.CSS2DObject(labelDiv);
+    label.position.set(0, 0, 0.01); // Slightly offset from the card
+    cardMesh.add(label);
+
+    scene.add(cardMesh);
+  });
+
+  // Camera position
+  camera.position.z = 8;
+
+  // Animation loop
+  function animate() {
+    requestAnimationFrame(animate);
+
+    // Rotate cards around the sphere
+    scene.children.forEach((child) => {
+      if (child instanceof THREE.Mesh && child.material.map) {
+        child.rotation.y += 0.01;
+      }
+    });
+
+    // Handle hover effect
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(scene.children);
+
+    if (intersects.length > 0) {
+      const intersectedObject = intersects[0].object;
+
+      if (intersectedObject.material && intersectedObject.material.map) {
+        if (hoveredCard !== intersectedObject) {
+          if (hoveredCard) {
+            // Reset previous hovered card
+            hoveredCard.scale.set(1, 1, 1);
+            hoveredCard.material.emissive.set(0x000000);
+            hoveredCard.material.emissiveIntensity = 0;
+            hoveredCard.children[0].element.style.opacity = 0; // Hide label
+          }
+
+          // Apply hover effect to the new card
+          hoveredCard = intersectedObject;
+          hoveredCard.scale.set(1.1, 1.1, 1.1); // Slightly increase size
+          hoveredCard.material.emissiveMap = cardGradientTexture; // Gradient texture
+          hoveredCard.material.emissiveIntensity = 0.8; // Soft glow
+          hoveredCard.children[0].element.style.opacity = 1; // Show label
+        }
+      }
+    } else {
+      if (hoveredCard) {
+        // Reset previous hovered card
+        hoveredCard.scale.set(1, 1, 1);
+        hoveredCard.material.emissiveMap = null;
+        hoveredCard.material.emissive.set(0x000000);
+        hoveredCard.material.emissiveIntensity = 0;
+        hoveredCard.children[0].element.style.opacity = 0; // Hide label
+        hoveredCard = null;
+      }
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+  }
+
+  // Mouse move event for raycasting
+  window.addEventListener("mousemove", (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  });
+
+  // Click detection
+  window.addEventListener("click", () => {
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(scene.children);
+
+    if (intersects.length > 0) {
+      const clickedObject = intersects[0].object;
+      if (clickedObject.userData.url) {
+        window.open(clickedObject.userData.url, "_blank");
+      }
+    }
+  });
+
+  // Handle window resize
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  animate();
+</script>
 </body>
 </html>
